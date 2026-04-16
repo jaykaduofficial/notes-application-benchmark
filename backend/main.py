@@ -19,10 +19,8 @@ app.add_middleware(
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.join(BASE_DIR, "..", "frontend")
-
 app.mount("/static", StaticFiles(directory=os.path.join(FRONTEND_DIR, "static")), name="static")
 templates = Jinja2Templates(directory=os.path.join(FRONTEND_DIR, "templates"))
-
 DATABASE = os.path.join(BASE_DIR, "notes.db")
 
 
@@ -133,6 +131,3 @@ def delete_note(note_id: int):
     conn.execute("DELETE FROM notes WHERE id = ?", (note_id,))
     conn.commit()
     conn.close()
-
-
-    
