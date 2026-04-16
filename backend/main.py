@@ -19,10 +19,8 @@ app.add_middleware(
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.join(BASE_DIR, "..", "frontend")
-
 app.mount("/static", StaticFiles(directory=os.path.join(FRONTEND_DIR, "static")), name="static")
 templates = Jinja2Templates(directory=os.path.join(FRONTEND_DIR, "templates"))
-
 DATABASE = os.path.join(BASE_DIR, "notes.db")
 
 
@@ -41,6 +39,15 @@ def init_db():
             content TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
     conn.commit()
@@ -68,9 +75,50 @@ class NoteResponse(BaseModel):
     updated_at: str
 
 
+
+class UserCreate(BaseModel):
+    username: str
+    password: str   
+
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+
 @app.get("/")
 def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
+@app.post("/api/register", status_code=201)
+def register(user: UserCreate):
+    conn = get_db()
+    try:
+        conn.execute(
+            "INSERT INTO users (username, password) VALUES (?, ?)",
+            (user.username, user.password),   
+        )
+        conn.commit()
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=400, detail="Username already taken")
+    finally:
+        conn.close()
+    return {"username": user.username, "password": user.password}  
+
+
+
+@app.post("/api/login")
+def login(user: UserLogin):
+    conn = get_db()
+    row = conn.execute(
+        "SELECT * FROM users WHERE username = ? AND password = ?",
+        (user.username, user.password),
+    )
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    return {"message": "Login successful"}
 
 
 @app.get("/api/notes", response_model=List[NoteResponse])
@@ -133,6 +181,3 @@ def delete_note(note_id: int):
     conn.execute("DELETE FROM notes WHERE id = ?", (note_id,))
     conn.commit()
     conn.close()
-
-
-    
