@@ -94,6 +94,7 @@ def get_note(note_id: int):
 @app.post("/api/notes", response_model=NoteResponse, status_code=201)
 def create_note(note: NoteCreate):
     conn = get_db()
+    # BUG: if conn.execute raises an exception, conn.close() is never called — connection leak
     cursor = conn.execute(
         "INSERT INTO notes (title, content) VALUES (?, ?)",
         (note.title, note.content),
@@ -113,6 +114,7 @@ def update_note(note_id: int, note: NoteUpdate):
         raise HTTPException(status_code=404, detail="Note not found")
     title = note.title if note.title is not None else existing["title"]
     content = note.content if note.content is not None else existing["content"]
+
     conn.execute(
         "UPDATE notes SET title = ?, content = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
         (title, content, note_id),
@@ -133,6 +135,3 @@ def delete_note(note_id: int):
     conn.execute("DELETE FROM notes WHERE id = ?", (note_id,))
     conn.commit()
     conn.close()
-
-
-    
