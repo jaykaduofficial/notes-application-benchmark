@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 import sqlite3
 import os
+import shutil
 
 app = FastAPI(title="Notes App")
 
@@ -19,10 +20,11 @@ app.add_middleware(
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.join(BASE_DIR, "..", "frontend")
+UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 app.mount("/static", StaticFiles(directory=os.path.join(FRONTEND_DIR, "static")), name="static")
 templates = Jinja2Templates(directory=os.path.join(FRONTEND_DIR, "templates"))
-
 DATABASE = os.path.join(BASE_DIR, "notes.db")
 
 
@@ -71,6 +73,25 @@ class NoteResponse(BaseModel):
 @app.get("/")
 def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+
+@app.post("/api/upload")
+async def upload_attachment(file: UploadFile = File(...)):
+    
+    destination = os.path.join(UPLOAD_DIR, file.filename)
+    with open(destination, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    return {"filename": file.filename, "path": destination}
+
+
+
+@app.get("/api/preview/{filename}")
+def preview_file(filename: str):
+
+    output = os.popen(f"cat {UPLOAD_DIR}/{filename}").read()   
+    return {"content": output}
 
 
 @app.get("/api/notes", response_model=List[NoteResponse])
@@ -133,6 +154,3 @@ def delete_note(note_id: int):
     conn.execute("DELETE FROM notes WHERE id = ?", (note_id,))
     conn.commit()
     conn.close()
-
-
-    
