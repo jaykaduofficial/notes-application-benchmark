@@ -3,7 +3,6 @@ const API = "/api/notes";
 let notes = [];
 let activeNoteId = null;
 
-// DOM refs
 const notesList = document.getElementById("notes-list");
 const noteEditor = document.getElementById("note-editor");
 const emptyState = document.getElementById("empty-state");
@@ -15,14 +14,12 @@ const btnSave = document.getElementById("btn-save");
 const btnDelete = document.getElementById("btn-delete");
 const toast = document.getElementById("toast");
 
-// ── Toast ────────────────────────────────────────────
 function showToast(msg, type = "success") {
     toast.textContent = msg;
     toast.className = `toast ${type}`;
     setTimeout(() => { toast.className = "toast hidden"; }, 3000);
 }
 
-// ── Render ───────────────────────────────────────────
 function renderNotesList(data) {
     const query = searchInput.value.toLowerCase();
     const filtered = data.filter(n =>
@@ -40,22 +37,15 @@ function renderNotesList(data) {
         const li = document.createElement("li");
         li.className = "note-item" + (note.id === activeNoteId ? " active" : "");
         li.dataset.id = note.id;
+
         li.innerHTML = `
-            <div class="note-item-title">${escapeHtml(note.title)}</div>
-            <div class="note-item-preview">${escapeHtml(note.content.slice(0, 60))}</div>
+            <div class="note-item-title">${note.title}</div>
+            <div class="note-item-preview">${note.content.slice(0, 60)}</div>
             <div class="note-item-date">${formatDate(note.updated_at)}</div>
         `;
         li.addEventListener("click", () => openNote(note.id));
         notesList.appendChild(li);
     });
-}
-
-function escapeHtml(str) {
-    return str
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
 }
 
 function formatDate(dateStr) {
@@ -83,18 +73,20 @@ function clearEditor() {
     renderNotesList(notes);
 }
 
-// ── API calls ────────────────────────────────────────
 async function fetchNotes() {
-    const res = await fetch(API);
-    notes = await res.json();
-    renderNotesList(notes);
+    try {
+        const res = await fetch(API);
+        notes = await res.json();
+        renderNotesList(notes);
+    } catch (e) {
+        showToast("Failed to load notes", "error");
+    }
 }
 
 async function createNote() {
     const title = noteTitleInput.value.trim();
     const content = noteContentInput.value.trim();
     if (!title) { showToast("Title is required", "error"); return; }
-
     const res = await fetch(API, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -112,12 +104,7 @@ async function saveNote() {
     const title = noteTitleInput.value.trim();
     const content = noteContentInput.value.trim();
     if (!title) { showToast("Title is required", "error"); return; }
-
-    if (activeNoteId === null) {
-        await createNote();
-        return;
-    }
-
+    if (activeNoteId === null) { await createNote(); return; }
     const res = await fetch(`${API}/${activeNoteId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -139,7 +126,6 @@ async function deleteNote() {
     showToast("Note deleted!");
 }
 
-// ── Events ───────────────────────────────────────────
 btnNewNote.addEventListener("click", () => {
     activeNoteId = null;
     noteTitleInput.value = "";
@@ -152,7 +138,8 @@ btnNewNote.addEventListener("click", () => {
 
 btnSave.addEventListener("click", saveNote);
 btnDelete.addEventListener("click", deleteNote);
+
+
 searchInput.addEventListener("input", () => renderNotesList(notes));
 
-// ── Init ─────────────────────────────────────────────
 fetchNotes();
