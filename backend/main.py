@@ -1,7 +1,8 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
@@ -19,10 +20,11 @@ app.add_middleware(
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.join(BASE_DIR, "..", "frontend")
+EXPORT_DIR = os.path.join(BASE_DIR, "exports")
+os.makedirs(EXPORT_DIR, exist_ok=True)
 
 app.mount("/static", StaticFiles(directory=os.path.join(FRONTEND_DIR, "static")), name="static")
 templates = Jinja2Templates(directory=os.path.join(FRONTEND_DIR, "templates"))
-
 DATABASE = os.path.join(BASE_DIR, "notes.db")
 
 
@@ -71,6 +73,20 @@ class NoteResponse(BaseModel):
 @app.get("/")
 def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+
+@app.get("/api/export")
+def export_note(filename: str = Query(...)):
+    file_path = os.path.join(EXPORT_DIR, filename)   
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(file_path)
+
+
+@app.get("/redirect")
+def redirect_after_login(next: str = Query("/"), request: Request = None):
+    return RedirectResponse(url=next)   # SECURITY: unvalidated external redirect
 
 
 @app.get("/api/notes", response_model=List[NoteResponse])
@@ -133,6 +149,3 @@ def delete_note(note_id: int):
     conn.execute("DELETE FROM notes WHERE id = ?", (note_id,))
     conn.commit()
     conn.close()
-
-
-    
