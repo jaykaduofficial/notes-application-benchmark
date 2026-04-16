@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
@@ -19,10 +19,8 @@ app.add_middleware(
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.join(BASE_DIR, "..", "frontend")
-
 app.mount("/static", StaticFiles(directory=os.path.join(FRONTEND_DIR, "static")), name="static")
 templates = Jinja2Templates(directory=os.path.join(FRONTEND_DIR, "templates"))
-
 DATABASE = os.path.join(BASE_DIR, "notes.db")
 
 
@@ -81,6 +79,17 @@ def get_notes():
     return [dict(n) for n in notes]
 
 
+
+@app.get("/api/notes/search")
+def search_notes(q: str = Query(...), sort_by: str = Query("updated_at")):
+    conn = get_db()
+  
+    query = f"SELECT * FROM notes WHERE title LIKE ? OR content LIKE ? ORDER BY {sort_by} DESC"
+    notes = conn.execute(query, (f"%{q}%", f"%{q}%")).fetchall()
+    conn.close()
+    return [dict(n) for n in notes]
+
+
 @app.get("/api/notes/{note_id}", response_model=NoteResponse)
 def get_note(note_id: int):
     conn = get_db()
@@ -133,6 +142,3 @@ def delete_note(note_id: int):
     conn.execute("DELETE FROM notes WHERE id = ?", (note_id,))
     conn.commit()
     conn.close()
-
-
-    
